@@ -1,0 +1,394 @@
+---
+title: "Final Project NLP"
+author: "Ludmila Filipova"
+date: "8 4 2022"
+output: html_document
+---
+
+# Libraries
+
+Required libraries include tidyverse and ggplot2, as well as natural language processing libraries, such as tm.
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(tm)
+library(quanteda)
+library(tidytext)
+data("stop_words")
+library(textreadr)
+library(textstem) #word clounds
+library(wordcloud)
+```
+
+# The data
+
+Through the process, there are 3 main datasets created
+d..........has all the words in all reports with the appropriate frequency count for each word and the total 
+melted_d.....long version of d, columns: word / report / count
+pd...........dataframe required for the facet wrap visualization, has a special column named *order*
+
+# IGNORE CORPUS MANIPULATION
+
+```{r load_data}
+library(pdftools)
+files <- list.files(pattern = "pdf$")
+opinions <- lapply(files, pdf_text)
+```
+
+```{r corpus}
+corp <- VCorpus(URISource(files),
+               readerControl = list(reader = readPDF))
+#remove stop words
+ipcc_corpus <- tm_map(corp, removeWords, stopwords("english"))
+#remove punctuation
+ipcc_corpus <- tm_map(corp, content_transformer(removePunctuation))
+#remove numbers
+#ipcc_corpus <- tm_map(corp, content_transformer(removeNumbers))
+#to lowercase
+ipcc_corpus <- tm_map(corp,  content_transformer(tolower))
+#remove whitespace
+ipcc_corpus <- tm_map(corp, content_transformer(stripWhitespace))
+#remove special characters and htmp (if present)
+removeNonASCII <- function(x) iconv(x, "latin1", "ASCII", sub="")
+#removeURL <- function(x) gsub("http[[:alnum:]]*","",x)
+#ipcc_corpus <- tm_map(corp, content_transformer(removeURL)) #remove web url
+ipcc_corpus <- tm_map(corp, content_transformer(removeNonASCII)) #remove non-ASCII
+#lemmatize
+ipcc_corpus  <- tm_map(corp, content_transformer(textstem::lemmatize_strings))
+# Print data on the 15th document -> originally, there were come non ASCII letters but now it is all clean
+#ipcc_corpus[[2]]$content
+
+ipcc_tdm <- TermDocumentMatrix(ipcc_corpus, 
+                                   control =
+                                     list(removePunctuation = TRUE,
+                                          stopwords = TRUE,
+                                          tolower = TRUE,
+                                          #stemming = TRUE,
+                                        #  removeNumbers = TRUE,
+                                          bounds = list(global = c(5, Inf))))
+```
+
+
+```{r frequency_terms}
+#filter for words that have at least 100 frequency
+ipcc_ft <- findFreqTerms(ipcc_tdm, lowfreq = 100, highfreq = Inf)
+ipcc_ftm <- as.matrix(ipcc_tdm[ipcc_ft,], id = nDocs(ipcc_tdm)) 
+#v <- sort(apply(ipcc_ftm, 1, sum), decreasing = TRUE)
+#v <- sort(rowSums(ipcc_ftm),decreasing=TRUE)
+#d_total <- data.frame(word = names(v),freq=v)
+d <- data.frame(ipcc_ftm) #export this dataframe for CHO!
+#write.csv(d,"./df_words_frequency.csv", row.names = FALSE)
+```
+
+# VISUALIZATIONS
+
+```{r frequency_terms}
+#LOAD CSV
+d <- read.csv("df_words_frequency.csv")
+
+d$total <- apply(d, 1, sum)
+
+#index to columns
+d <- cbind(word = rownames(d), d)
+rownames(d) <- 1:nrow(d)
+```
+
+```{r word_cloud}
+set.seed(1234)
+wordcloud(words = d$word, freq = d$total, min.freq = 1,
+          max.words=80, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+# Top 10 words for total
+
+```{r top_words_total}
+d %>%
+  arrange(desc(total)) %>%
+  dplyr::slice(1:10) %>%
+  #mutate(total = reorder(word, total)) %>%
+  ggplot(aes(x = reorder(word, total), total)) +
+  geom_col(fill = "#1FA187") +
+  labs(x = NULL, y = "Word Frequency") + 
+  ggtitle("Word Frequency in All IPCC Reports (1990 - 2014)") +
+  coord_flip() +
+  theme(plot.title = element_text(face = "bold"))
+```
+# IPCC facet wrap
+
+```{r all_reports_plot}
+library(reshape2)
+                 
+melted_d <- melt(d, id = "word", measure.vars = 2:ncol(d))
+
+#changing the labels names 
+melted_d$variable <- factor(melted_d$variable, levels = c("ipcc_90_92.pdf", "ipcc_95.pdf", "ipcc_01.pdf", "ipcc_07.pdf", "ipcc_14.pdf","total"),
+                  labels = c("IPCC 1992 Report", "IPCC 1995 Report", "IPCC 2001 Report", "IPCC 2007 Report", "IPCC 2014 Report","All Reports")
+                  )
+
+#need to fist filter for top 10 of all the reports
+# Plot Data Frame
+pd <- melted_d %>%
+  group_by(variable) %>%
+  top_n(10, value) %>% 
+  # 1. Remove grouping
+  ungroup() %>%
+  # 2. Arrange by
+  #   i.  facet group
+  #   ii. bar height
+  arrange(variable, word) %>%
+  # 3. Add order column of row numbers
+  mutate(order = row_number())
+
+ggplot(pd, aes(x = reorder(word, value), value)) +
+  geom_bar(stat = "identity", show.legend = FALSE, fill = "#1FA187") + #1FA187
+  facet_wrap(~ variable, scales = "free") +
+  xlab("Frequent Words") +
+  ylab("Frequency") +
+  theme_bw() +
+  coord_flip() +
+  theme(plot.title = element_text(face = "bold")) +
+  ggtitle("Word Frequency in IPCC Reports (1992 - 2014)")
+  
+```
+# IPCC per year individually
+
+```{r individual_frequency}
+plot_90 <- d %>%
+  arrange(desc(ipcc_90_92.pdf)) %>%
+  dplyr::slice(1:10) %>%
+  #mutate(total = reorder(word, total)) %>%
+  ggplot(aes(x = reorder(word, ipcc_90_92.pdf), ipcc_90_92.pdf)) +
+  geom_col(fill = "darkgreen") +
+  labs(x = NULL, y = "Word Frequency") + 
+  ggtitle("Word Frequency in the 1992 IPCC Report") +
+  coord_flip() +
+  theme(plot.title = element_text(face = "bold"))
+
+plot_95 <- d %>%
+  arrange(desc(ipcc_95.pdf)) %>%
+  dplyr::slice(1:10) %>%
+  #mutate(total = reorder(word, total)) %>%
+  ggplot(aes(x = reorder(word, ipcc_95.pdf), ipcc_95.pdf)) +
+  geom_col(fill = "darkgreen") +
+  labs(x = NULL, y = "Word Frequency") + 
+  ggtitle("Word Frequency in the 1995 IPCC Report") +
+  coord_flip() +
+  theme(plot.title = element_text(face = "bold"))
+
+plot_01 <- d %>%
+  arrange(desc(ipcc_01.pdf)) %>%
+  dplyr::slice(1:10) %>%
+  #mutate(total = reorder(word, total)) %>%
+  ggplot(aes(x = reorder(word, ipcc_01.pdf), ipcc_01.pdf)) +
+  geom_col(fill = "darkgreen") +
+  labs(x = NULL, y = "Word Frequency") + 
+  ggtitle("Word Frequency in the 1995 IPCC Report") +
+  coord_flip() +
+  theme(plot.title = element_text(face = "bold"))
+
+plot_97 <- d %>%
+  arrange(desc(ipcc_95.pdf)) %>%
+  dplyr::slice(1:10) %>%
+  #mutate(total = reorder(word, total)) %>%
+  ggplot(aes(x = reorder(word, ipcc_95.pdf), ipcc_95.pdf)) +
+  geom_col(fill = "darkgreen") +
+  labs(x = NULL, y = "Word Frequency") + 
+  ggtitle("Word Frequency in the 1995 IPCC Report") +
+  coord_flip() +
+  theme(plot.title = element_text(face = "bold"))
+
+plot_14 <- d %>%
+  arrange(desc(ipcc_14.pdf)) %>%
+  dplyr::slice(1:10) %>%
+  #mutate(total = reorder(word, total)) %>%
+  ggplot(aes(x = reorder(word, ipcc_95.pdf), ipcc_95.pdf)) +
+  geom_col(fill = "darkgreen") +
+  labs(x = NULL, y = "Word Frequency") + 
+  ggtitle("Word Frequency in the 1995 IPCC Report") +
+  coord_flip() +
+  theme(plot.title = element_text(face = "bold"))
+
+```
+
+# Time evolution
+
+```{r time_evolution}
+#get top ten
+key_words = c("change", "climate", "increase", "emission", "much", "impact", "can", "level", "scenario", "use")
+melted_time <- subset(melted_d, word %in% key_words) #filter from melted_d
+
+#plot
+melted_time$variable <- recode_factor(melted_time$variable,"IPCC 2001 Report" = "2001", "IPCC 2007 Report" = "2007", "IPCC 2014 Report" = "2014","IPCC 1992 Report" = "1992","IPCC 1995 Report" = "1995")
+
+melted_time$variable <- as.numeric(as.character(melted_time$variable))
+
+
+ggplot(melted_time, aes(x =  variable, y = value, color = reorder(word, value))) + 
+  geom_line() +
+  theme(plot.title = element_text(face = "bold")) +
+  labs(x = "Year of the Published Report", y = "Word Frequency", color = "Keyword") + 
+  ggtitle("Evolution of Keyword Frequency from 1992 to 2014")
+
+```
+
+
+# Document similarity
+
+Seeing how the documents have similar keywords (top 10), here is the document similarity.
+
+Using **textreuse**
+
+```{r reuse}
+minhash <- minhash_generator(n = 600, seed = 1345)
+reusecorpus <- TextReuseCorpus(dir = "C:/Users/PH/Desktop/Columbia_QMSS/Classes/Spring/Data Viz/Group_N_GlobalSustainability/ipcc", 
+                               tokenizer = tokenize_ngrams, 
+                               n = 5,
+                          minhash_func = minhash, 
+                          keep_tokens = TRUE, 
+                          progress = FALSE)
+#double-checking the minihashing
+head(minhashes(reusecorpus[[1]]))
+
+#desciptive
+wordcount(reusecorpus) #ipcc_01    ipcc_07    ipcc_14 ipcc_90_92    ipcc_95 
+                       #241496      63300      95072     140216      45076 
+
+#tokens(reusecorpus)
+
+#compare documents
+comparisons <- pairwise_compare(reusecorpus, jaccard_similarity)
+comparisons
+
+comparisons_df <- as.data.frame(comparisons)
+
+#reorder by column index
+comparisons_df <- comparisons_df[, c(4,5,1,2,3)] # leave the row index blank to keep all rows
+colnames(comparisons_df) <- c("IPCC 2001", "IPCC 2007", "IPCC 2014", "IPCC 1992", "IPCC 1995")
+rownames(comparisons_df) <- c("IPCC 2001", "IPCC 2007", "IPCC 2014", "IPCC 1992", "IPCC 1995")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+################################################################################
+```{r reuse_ignore}
+#it is hard to upload the pdf as a textreuse corpus so I will use the corpus from before and transf. to df
+corpus_df <- data.frame(text=sapply(ipcc_corpus, identity), 
+    stringsAsFactors=F)#ipcc_corpus)
+
+text<-corpus_df[1,]
+text_df <- map_df(text, ~as.data.frame(t(.)))
+
+#missing row names
+#index to columns
+text_df <- cbind(report = rownames(text_df), text_df)
+rownames(text_df) <- 1:nrow(text_df)
+
+text_df <- unnest(text_df, content)
+
+text_only <-as.character(text_df$content)
+names(text_only)<-text_only$report
+```
+
+The data is loaded using the read.delim2 function. Every paragraph is coded as an observable. The column V1 is renamed to text-
+
+```{r nlp_data}
+# Read a text file using read.delim2
+green_deal = read.delim2("eu_green_deal.txt", header = FALSE)
+
+green_deal <- green_deal %>%
+  rename(text = V1)
+
+print(green_deal)
+```
+
+# Data cleaning
+
+- cleaning the data as a corpus (remove stop words, to lower, remove punctuation, digits, white space, html and non-ASCII characters)
+
+```{r nlp_cleaning}
+#adding the row number as a document id for each paragraph
+green_deal <- green_deal %>%
+  dplyr::mutate(doc_id = row_number()) %>%  
+  relocate(doc_id)
+# Convert df_source to a volatile corpus
+green_deal_df_source <- DataframeSource(green_deal)
+green_deal_corpus <- VCorpus(green_deal_df_source)
+#remove stop words
+green_deal_corpus <- tm_map(green_deal_corpus, removeWords, stopwords("english"))
+#remove punctuation
+green_deal_corpus <- tm_map(green_deal_corpus, content_transformer(removePunctuation))
+#remove numbers
+green_deal_corpus <- tm_map(green_deal_corpus, content_transformer(removeNumbers))
+#to lowercase
+green_deal_corpus <- tm_map(green_deal_corpus,  content_transformer(tolower))
+#remove whitespace
+green_deal_corpus <- tm_map(green_deal_corpus, content_transformer(stripWhitespace))
+#remove special characters and htmp (if present)
+removeNonASCII <- function(x) iconv(x, "latin1", "ASCII", sub="")
+removeURL <- function(x) gsub("http[[:alnum:]]*","",x)
+green_deal_corpus <- tm_map(green_deal_corpus, content_transformer(removeURL)) #remove web url
+green_deal_corpus <- tm_map(green_deal_corpus, content_transformer(removeNonASCII)) #remove non-ASCII
+# Print data on the 15th document -> originally, there were come non ASCII letters but now it is all clean
+green_deal_corpus[[15]]$content
+```
+# Document-term matrix
+
+From the document term matrix, we can see that the total number of terms is 1,878 and there are 206 documents, which are the original paragraphs of the text. The document term matrix uses the term frequency (tf).
+
+```{r dtm, echo=FALSE, warning=FALSE, message=FALSE}
+green_deal_DTM <- DocumentTermMatrix(green_deal_corpus)
+inspect(green_deal_DTM)
+```
+# Word Cloud
+
+```{r word_cloud}
+# Convert sotu_tdm to a matrix: sotu_m
+green_deal_matrix <- as.matrix(green_deal_DTM)
+
+#tidy the corpus in a tidy dataframe
+green_deal_td <- tidy(green_deal_corpus)
+green_deal_words <- green_deal_td %>%
+  unnest_tokens(word, text) %>% #I noticed that there are still some stop words left
+  anti_join(stop_words) %>% 
+  mutate(lemma = lemmatize_words(word)) %>% #lemmatize
+  count(lemma, sort = TRUE) %>%
+  dplyr::rename(n_success = n)
+  
+#head(green_deal_words)
+library(wordcloud)
+set.seed(1234)
+wordcloud(words = green_deal_words$lemma, freq = green_deal_words$n_success, min.freq = 1,
+          max.words=50, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(8, "Dark2"))
+```
+# Word Bar Chart
+
+```{r words_bar}
+green_deal_words %>%
+  arrange(desc(n_success)) %>%
+  dplyr::slice(1:10) %>%
+  mutate(lemma = reorder(lemma, n_success)) %>%
+  ggplot(aes(lemma, n_success)) +
+  geom_col() +
+  labs(x = "Word Frequency", y = NULL) + 
+  ggtitle("Word Frequency in the EU Green Deal") +
+  coord_flip()
+```
+
