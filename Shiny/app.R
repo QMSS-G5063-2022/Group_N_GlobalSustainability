@@ -13,7 +13,18 @@ library(ggiraph)
 library(glue)
 library(ggstream)
 library(plotly)
+library(tm)
+library(quanteda)
+library(tidytext)
+data("stop_words")
+library(textreadr)
+library(textstem)
+library(wordcloud)
+library(reshape2)
 
+#NLP annotate overrides ggplot2 annotate function so have to call ggplot2::annotate
+
+#####LOAD DATA######
 #load ranked data
 world_rank <- read.csv("CO2_ranked_sectors_percentage.csv", header = T)
 #remove first column with X
@@ -22,6 +33,12 @@ world_rank <- world_rank[,-1]
 EU_story <- read.csv("EU_percentchange_pop.csv", header = T)
 #remove first column with X
 EU_story <- EU_story[, -1]
+
+#NLP
+#load word frequency data
+words <- read.csv("df_words_frequency.csv", header = T, fileEncoding="latin1")
+
+###########
 
 
 #make SHINY APP
@@ -50,13 +67,11 @@ ui <- navbarPage(title = "Carbon Emissions",
              ),
 
         column(width = 4, offset = 2,
-             tabsetPanel(
-               tabPanel("Sectors",
-                        br(),
-                        p("\nHover over a country for carbon emissions breakdown by sector"),
-                        girafeOutput("sector"))
+               h3("Sectors"),
+               br(),
+               p("\nHover over a country for carbon emissions breakdown by sector"),
+               girafeOutput("sector")
                )
-             )
         ),
                  ),
 
@@ -91,11 +106,29 @@ ui <- navbarPage(title = "Carbon Emissions",
                                )
                              )
              )
-    )
+    ),
+    tabPanel("IPCC Reports Analysis",
+             fluidRow(column(width = 10, offset = 2,
+                             plotOutput("wordcloud", height = 1000, width = 1000)
+                             )
+                      ),
 
-    #verbatimTextOutput("info")
-    #1872 UK no longer number 1 in total carbon emissions
-    #1975 no longer top 3
+             fluidRow(column(width = 11, offset = 1,
+                             plotOutput("top10_words_all")
+                             )
+                      ),
+
+             fluidRow(column(width = 11, offset = 1,
+                             plotOutput("top10_words_reports", 1000, height = 500)
+                             )
+                      ),
+
+             fluidRow(column(width = 11, offset = 1,
+                             plotOutput("words_overtime")
+                             )
+                      )
+
+    )
 
 )
 
@@ -297,19 +330,19 @@ server <- function(input, output, session) {
            y = "") +
       geom_segment(aes(x = 1850 , y = 0, xend = 2018, yend = 0),
                    color = "#E5E4E2", size = 0.1, lty = "dotted") +
-      annotate(geom = "text", x = 2022, y = 0, label = "0", size = 3, family = "Helvetica", color = "#36454F") +
+      ggplot2::annotate(geom = "text", x = 2022, y = 0, label = "0", size = 3, family = "Helvetica", color = "#36454F") +
       geom_segment(aes(x = 1950 , y = 1000, xend = 2018, yend = 1000),
                    color = "#E5E4E2", size = 0.1, lty = "dotted") +
-      annotate(geom = "text", x = 2022, y = 1000, label = "1000", size = 3, family = "Helvetica", color = "#36454F") +
+      ggplot2::annotate(geom = "text", x = 2022, y = 1000, label = "1000", size = 3, family = "Helvetica", color = "#36454F") +
       geom_segment(aes(x = 1969 , y = 2000, xend = 2018, yend = 2000),
                    color = "#E5E4E2", size = 0.1, lty = "dotted") +
-      annotate(geom = "text", x = 2022, y = 2000, label = "2000", size = 3, family = "Helvetica", color = "#36454F") +
+      ggplot2::annotate(geom = "text", x = 2022, y = 2000, label = "2000", size = 3, family = "Helvetica", color = "#36454F") +
       geom_segment(aes(x = 1950 , y = -1000, xend = 2018, yend = -1000),
                    color = "#E5E4E2", size = 0.1, lty = "dotted") +
-      annotate(geom = "text", x = 2022, y = -1000, label = "1000", size = 3, family = "Helvetica", color = "#36454F") +
+      ggplot2::annotate(geom = "text", x = 2022, y = -1000, label = "1000", size = 3, family = "Helvetica", color = "#36454F") +
       geom_segment(aes(x = 1969 , y = -2000, xend = 2018, yend = -2000),
                    color = "#E5E4E2", size = 0.1, lty = "dotted") +
-      annotate(geom = "text", x = 2022, y = -2000, label = "2000", size = 3, family = "Helvetica", color = "#36454F")
+      ggplot2::annotate(geom = "text", x = 2022, y = -2000, label = "2000", size = 3, family = "Helvetica", color = "#36454F")
 
   })
 
@@ -354,10 +387,10 @@ server <- function(input, output, session) {
            x = "Year",
            y = "Annual Carbon Emissions (Metric Tons)") +
       geom_segment(aes(x = 2015 , y = 0, xend = 2015, yend = 1190), color = "#50C878") +
-      annotate(geom = "text", x = 2015, y = 1260, label = "Paris \nAgreement", size = 2.5,
+      ggplot2::annotate(geom = "text", x = 2015, y = 1260, label = "Paris \nAgreement", size = 2.5,
                family = "Helvetica", color = "#36454F") +
       geom_segment(aes(x = 1987, y = 0, xend = 1987, yend = 1190), color = "#50C878") +
-      annotate(geom = "text", x = 1987, y = 1260, label = "Montreal \nProtocol", size = 2.5,
+      ggplot2::annotate(geom = "text", x = 1987, y = 1260, label = "Montreal \nProtocol", size = 2.5,
                family = "Helvetica", color = "#36454F")
 
     #create interactivity
@@ -406,6 +439,172 @@ server <- function(input, output, session) {
            y = "Percentage Change")
 
   })
+
+  output$wordcloud <- renderPlot({
+
+    #for reproducibility
+    set.seed(1234)
+
+    #word cloud
+    wordcloud(words = words$word, freq = words$total, min.freq = 1,
+              max.words=80, random.order=FALSE, rot.per=0.35,
+              colors=brewer.pal(8, "Dark2"))
+
+  })
+
+
+  output$top10_words_all <- renderPlot({
+
+    #top 10 words across all reports
+    words %>%
+      arrange(desc(total)) %>%
+      dplyr::slice(1:10) %>%
+      ggplot(aes(x = reorder(word, total), total)) +
+      geom_col(fill = "#1FA187") +
+      labs(x = NULL, y = "Word Frequency") +
+      ggtitle("Word Frequency in All IPCC Reports (1990 - 2014)") +
+      coord_flip() +
+      theme(panel.grid.major.x = element_line(color = "#D3D3D3", size = 0.3),
+            panel.grid.minor.x = element_line(colour = "#D3D3D3", size = 0.1),
+            panel.grid.major.y = element_blank(),
+            panel.border = element_blank(),
+            panel.background = element_blank(),
+            axis.ticks.x = element_blank(),
+            axis.ticks.y = element_blank(),
+            axis.title.x = element_text(family = "Helvetica", color = "#36454F", size = 15),
+            axis.text.x = element_text(family = "Helvetica", color = "#36454F", size = 10),
+            axis.title.y = element_text(family = "Helvetica", color = "#36454F", size = 15),
+            axis.text.y = element_text(family = "Helvetica", color = "#36454F", size = 10),
+            plot.title = element_text(family = "Helvetica", color = "#36454F", face = "bold", size = 20),
+            plot.caption = element_text(family = "Helvetica", color = "#36454F", face = "italic", size = 10))
+
+  })
+
+
+output$top10_words_reports <- renderPlot({
+
+  #reorganize dataframe
+  melted_d <- melt(words, id = "word", measure.vars = 2:ncol(words))
+
+  #changing the labels names
+  melted_d$variable <- factor(melted_d$variable, levels = c("ipcc_90_92.pdf", "ipcc_95.pdf", "ipcc_01.pdf", "ipcc_07.pdf", "ipcc_14.pdf","total"),
+                              labels = c("IPCC 1992 Report", "IPCC 1995 Report", "IPCC 2001 Report", "IPCC 2007 Report", "IPCC 2014 Report","All Reports")
+  )
+
+  #need to fist filter for top 10 of all the reports
+  # Plot Data Frame
+  pd <- melted_d %>%
+    group_by(variable) %>%
+    top_n(10, value) %>%
+    # 1. Remove grouping
+    ungroup() %>%
+    # 2. Arrange by
+    #   i.  facet group
+    #   ii. bar height
+    arrange(variable, word) %>%
+    # 3. Add order column of row numbers
+    mutate(order = row_number())
+
+  #top 10 words
+  top_10 <- words %>%
+    arrange(desc(total)) %>%
+    dplyr::slice(1:10)
+
+  top10_words <- unique(top_10$word)
+
+  #plot top 10 words faceted by report
+  pd %>%
+    mutate(color = as.factor(case_when(word %in% top10_words ~ 1,
+                                       T ~0))) %>%
+    ggplot(aes(x = reorder_within(word, value, variable), value, fill = color)) +
+    scale_x_reordered() +
+    geom_col(width = 0.8, aes(fill = color)) +
+    scale_fill_manual(values = c("1" = "#1FA187", "0" = "#FF7518")) +
+    #geom_bar(stat = "identity", show.legend = FALSE, fill = "#1FA187") +
+    facet_wrap(~ variable, scales = "free") +
+    xlab("Words") +
+    ylab("Frequency") +
+    theme_bw() +
+    coord_flip() +
+    theme(legend.position = "none",
+          strip.text = element_text(family = "Helvetica", color = "#36454F", size = 12, face = "bold.italic"),
+          strip.background = element_rect(fill = "transparent", color = NA),
+          panel.spacing = unit(30, "pt"),
+          panel.grid.major.x = element_line(color = "#D3D3D3", size = 0.3),
+          panel.grid.minor.x = element_line(colour = "#D3D3D3", size = 0.1),
+          panel.grid.major.y = element_blank(),
+          panel.border = element_blank(),
+          panel.background = element_blank(),
+          axis.ticks.x = element_blank(),
+          axis.ticks.y = element_blank(),
+          axis.title.x = element_text(family = "Helvetica", color = "#36454F", size = 15),
+          axis.text.x = element_text(family = "Helvetica", color = "#36454F", size = 10),
+          axis.title.y = element_text(family = "Helvetica", color = "#36454F", size = 15),
+          axis.text.y = element_text(family = "Helvetica", color = "#36454F", size = 10),
+          plot.title = element_text(family = "Helvetica", color = "#36454F", face = "bold", size = 20),
+          plot.subtitle = element_text(family = "Helvetica", color = "#36454F", size = 18),
+          plot.caption = element_text(family = "Helvetica", color = "#36454F", face = "italic", size = 10)) +
+    labs(title = "Word Frequency in IPCC Reports",
+         subtitle = "from 1992 to 2014\n ")
+
+})
+
+
+output$words_overtime <- renderPlot({
+
+  #get top ten
+  key_words = c("change", "climate", "increase", "emission", "much", "impact", "can", "level", "scenario", "use")
+  melted_time <- subset(melted_d, word %in% key_words) #filter from melted_d
+
+  #recode variables
+  melted_time$variable <- recode_factor(melted_time$variable,"IPCC 2001 Report" = "2001", "IPCC 2007 Report" = "2007",
+                                        "IPCC 2014 Report" = "2014","IPCC 1992 Report" = "1992","IPCC 1995 Report" = "1995")
+
+  melted_time$variable <- as.numeric(as.character(melted_time$variable))
+
+  #order the words from all reports (to fix legend ordering)
+  word_order <- melted_time %>%
+    filter(is.na(variable)) %>%
+    arrange(desc(value))
+
+  word_order_legend <- unique(word_order$word)
+
+  #plot words overtime
+  ggplot(melted_time, aes(x =  variable, y = value, color = word)) +
+    geom_line() +
+    geom_point() +
+    scale_color_manual(values = met.brewer("Peru1", 10),
+                       breaks = (word_order_legend)) +
+    ylim(c(0, 3500)) +
+    #scale_x_continuous(breaks = c(1992, 1995, 2001, 2007, 2014)) +
+    labs(title = "Evolution of Keyword Frequencies from 1992 to 2014",
+         x = "Year of the Published Report",
+         y = "Word Frequency",
+         color = "Keywords") +
+    theme(legend.position = "bottom", #c(0.25, 0.7),
+          legend.key.height = unit(0.5, "mm"),
+          legend.key.width = unit(1.5, "mm"),
+          legend.key.size = unit(2, "mm"),
+          legend.key = element_rect(fill = "transparent", color = NA),
+          legend.title = element_text(size = 10, color = "#36454F"),
+          legend.text = element_text(size = 8, color = "#36454F"),
+          panel.grid.major.x = element_blank(),
+          panel.grid.major.y = element_line(color = "#D3D3D3", size = 0.3),
+          panel.grid.minor.y = element_line(colour = "#D3D3D3", size = 0.1),
+          panel.border = element_blank(),
+          panel.background = element_blank(),
+          axis.ticks.x = element_blank(),
+          axis.ticks.y = element_blank(),
+          axis.title.x = element_text(family = "Helvetica", color = "#36454F", size = 15),
+          axis.text.x = element_text(family = "Helvetica", color = "#36454F", size = 10),
+          axis.title.y = element_text(family = "Helvetica", color = "#36454F", size = 15),
+          axis.text.y = element_text(family = "Helvetica", color = "#36454F", size = 10),
+          plot.title = element_text(family = "Helvetica", color = "#36454F", face = "bold", size = 20),
+          plot.subtitle = element_text(family = "Helvetica", color = "#36454F", size = 18),
+          plot.caption = element_text(family = "Helvetica", color = "#36454F", face = "italic", size = 10))
+
+  #I want to make this interactive
+})
 
   #output$info <- renderPrint({
     #hover_year <- world_rank %>%
