@@ -149,6 +149,11 @@ carbon$Country[carbon$Country=="Central African Republic"]="Central African Rep.
 carbon$Country[carbon$Country=="South Sudan"]="S. Sudan"
 carbon$Country[carbon$Country=="Czech Republic"]="Czech Rep."
 carbon$Country[carbon$Country=="Bosnia and Herzegovina"]="Bosnia and Herz."
+carbon$Country[carbon$Country=="Taiwan, Republic of China"]="Taiwan"
+carbon$Country[carbon$Country=="South Korea"]="Korea"
+carbon$Country[carbon$Country=="North Korea"]="Dem. Rep. Korea"
+carbon$Country[carbon$Country=="Laos"]="Lao PDR"
+carbon$Country[carbon$Country=="Equatorial Guinea"]="Eq. Guinea"
 
 vars_drop = c("Data.source", "Sector", "Gas", "Unit")
 carbon_1 = carbon[,!(names(carbon) %in% vars_drop)]
@@ -161,22 +166,33 @@ keep_vars = c("Country", "mean")
 complete_df_1 = complete_df[keep_vars]
 
 final_df = merge(world, complete_df_1, by.x = "name", by.y = "Country", all.x = TRUE)
+
+
+```
+
+```{r}
+#Giving Greenland to have the same data as Denmark
+final_df$mean[final_df$name=="Greenland"] = final_df$mean[final_df$name=="Denmark"]
+
+#Giving Dominican Republic value of 0 because they had 0s which were replaced by NA for
+#calculation as they are too small of a country
+final_df$mean[final_df$name=="Dominican Rep."] =0
 ```
 
 ```{r}
 vars_to_keep = c("name","mean","geometry")
 leaflet_df = final_df[vars_to_keep]
-bins <- c(0,50,100,200,500,1000,2500,5000,10000)
+bins = c(0,50,100,200,500,1000,2500,5000,10000)
 
-pal <- colorBin("YlOrRd", domain = final_df$mean, bins = bins)
+pal= colorBin("YlOrRd", domain = final_df$mean, bins = bins)
 
-labels <- sprintf(
+labels = sprintf(
   "<strong>%s</strong><br/>%g MtCO₂e (Metric Tons)",
   leaflet_df$name, leaflet_df$mean
 ) %>% lapply(htmltools::HTML)
 
 
-my_title <- tags$p(tags$style("p {color: dark grey; font-size:12px}"),
+my_title = tags$p(tags$style("p {color: dark grey; font-size:12px}"),
             tags$b("Mean CO₂ Emission By Country (1850 - 2018) By Metric Tons"))
 
 map = leaflet(final_df) %>%
