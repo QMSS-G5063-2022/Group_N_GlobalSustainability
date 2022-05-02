@@ -23,6 +23,16 @@ library(wordcloud)
 library(reshape2)
 library(textreuse)
 library(DT)
+library(leaflet)
+library(ggrepel)
+library(ggspatial)
+library(lwgeom)
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(htmlwidgets)
+library(htmltools)
+library(leafletCN)
 
 #NLP annotate overrides ggplot2 annotate function so have to call ggplot2::annotate
 
@@ -44,6 +54,68 @@ comparisons <- read.csv("comparisons.csv", sep = ",")
 
 ###########
 
+#####ORGANIZE MAP DATA######
+#read in csv
+world <- read.csv("historical_emissions_world.csv", header = T, check.names = F)
+#remove source column
+world <- world[, -2]
+
+#make long
+world_long <- world %>%
+  pivot_longer(!(c(Country, Sector, Gas, Unit)),
+               names_to = "Year", values_to = "Emissions")
+
+#filter out variables that are not needed
+world_CO2 <- world_long %>%
+  filter(Gas == "CO2") %>%
+  filter(Sector == "Total excluding LULUCF") %>%
+  filter(!((Country == "BASIC countries (Brazil, South Africa, India and China)") |
+             (Country == "Alliance of Small Island States (AOSIS)") |
+             (Country == "Annex-I Parties to the Convention") |
+             (Country == "Least Developed Countries") |
+             (Country == "Non-Annex-I Parties to the Convention") |
+             (Country == "European Union (27)") |
+             (Country == "Umbrella Group") |
+             (Country == "World"))) %>%
+  select(-(c(Sector, Gas, Unit)))
+
+
+#load map
+map <- ne_countries(scale = "medium", returnclass = "sf")
+class(map)
+
+#select variables from map
+map_c <- map %>%
+  select(c(name_long, geometry, continent))
+
+#change Russian Federation to Russia
+map_c$name_long[map_c$name_long == "Russian Federation"] <- "Russia"
+
+
+#merge dataset and map
+world_map <- merge(map_c, world_CO2, by.x = "name_long", by.y = "Country", all.y = T)
+
+#remove countries that do not have geometries
+world_map_c <- world_map %>%
+  rename(Country = name_long) %>%
+  filter(!((Country == "Brunei") |
+             (Country == "Gambia") |
+             (Country == "Hong Kong, Special Administrative Region of China") |
+             (Country == "Macao, Special Administrative Region of China") |
+             (Country == "Netherlands Antilles") |
+             (Country == "South Korea") |
+             (Country == "Tuvalu") |
+             (Country == "Eswatini") |
+             (Country == "Holy See (Vatican City State)") |
+             (Country == "Laos") |
+             (Country == "Micronesia") |
+             (Country == "North Korea") |
+             (Country == "Sao Tome and Principe") |
+             (Country == "Taiwan, Republic of China"))) %>%
+  na.omit()
+#############
+
+
 
 #make SHINY APP
 # Define UI
@@ -51,8 +123,13 @@ ui <- navbarPage(title = "Carbon Emissions",
                  tabPanel("Overview",
 
     #create a grid on website
-    fixedRow(
-      column(width = 5, offset = 2,
+    fluidRow(column(width = 12,
+                    leafletOutput("map", width = "100%", height = 680)
+                    )
+             ),
+
+    fluidRow(
+      column(width = 5, offset = 4,
              #slider for Year
              chooseSliderSkin("Round", "#6495ED"),
              setSliderColor("#6495ED", c(1)), #set how many sliders with this specific color
@@ -61,7 +138,7 @@ ui <- navbarPage(title = "Carbon Emissions",
                          step = 1, sep = "", width = 400, animate = F)
              )
         ),
-    fixedRow(
+    fluidRow(
         column(width = 6,
              plotOutput("rank", height = 500, width = 1000,
                         #brush = brushOpts("rank_brush", resetOnNew = T),
@@ -234,6 +311,58 @@ ui <- navbarPage(title = "Carbon Emissions",
 server <- function(input, output, session) {
 
   #updateSelectizeInput(session, "Year_slider", choices = world_rank, server = TRUE)
+
+  output$map <- renderLeaflet({
+
+    #filter for Year
+    world_map_filter <- world_map_c %>%
+      filter(Year == input$Year_slider)
+
+    Year_lab <- unique(world_map_filter$Year)
+
+    #make map
+    bins = c(0, 50, 100, 200, 500, 1000, 2500, 5000, 10000, 11000)
+
+    pal = colorBin("YlOrRd", domain = world_map_filter$Emissions, bins = bins)
+
+    labels = sprintf(
+      "<strong>%s</strong>, %s<br/>
+  <strong>%g MtCO₂e</strong>",
+      world_map_filter$Country, world_map_filter$continent, world_map_filter$Emissions) %>%
+      lapply(htmltools::HTML)
+
+
+    my_title = tags$p(tags$style("p {color: dark grey; font-size:20px}"),
+                      tags$b("CO₂ Emission by Country per Metric Tons in", Year_lab))
+
+    map = leaflet(world_map_filter) %>%
+      addTiles() %>%
+      addProviderTiles("Esri.WorldImagery") %>%
+      addPolygons(
+        fillColor = ~pal(Emissions),
+        weight = 0.5,
+        opacity = 1,
+        color = "white",
+        dashArray = "0",
+        fillOpacity = 0.7,
+        highlightOptions = highlightOptions(
+          weight = 2, color = "#0818A8", dashArray = "", fillOpacity = 0.7, bringToFront = TRUE
+        ),
+        label = labels,
+        labelOptions = labelOptions(
+          style = list("font-weight" = "normal", padding = "3px 8px"),
+          textsize = "15px",
+          direction = "auto")
+      ) %>%
+      setView(lat = 40.318001, lng = -11.400387, zoom = 2)
+
+    map %>%
+      addLegend(pal = pal, values = ~density, opacity = 0.7, title = "CO₂ Emission per Metric Ton",
+                position = "bottomright")%>%
+      addControl(my_title, position = "topright")
+
+  })
+
 
   #create bar chart of world ranking carbon emissions
   output$rank <- renderPlot({
