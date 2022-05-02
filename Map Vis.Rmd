@@ -1,0 +1,211 @@
+---
+title: "Final Project Data Vis - Map"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#Loading lib
+library(dplyr)
+library(leaflet)
+library(tidyverse)
+library(cowplot)
+library(googleway)
+library(ggplot2)
+library(ggrepel)
+library(ggspatial)
+library(lwgeom)
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+ library(htmlwidgets)
+ library(htmltools)
+library(leafletCN) 
+```
+
+#Loading dataset
+```{r cars}
+df = read.csv("historical_emissions_world.csv")
+```
+
+
+```{r}
+#Only include CO2 data
+carbon = df%>%
+  filter(Gas == "CO2")
+```
+
+
+```{r}
+#carbon_1 = aggregate(X2018~Country + Gas, data = carbon, FUN = sum)
+#Dropping variables for calculation sum of emissions regardless the sector
+vars_drop = c("Data.source", "Sector", "Gas", "Unit")
+carbon_1 = carbon[,!(names(carbon) %in% vars_drop)]
+var_names = colnames(carbon_1)
+complete_df = aggregate(.~Country, data = carbon_1, FUN = sum,na.rm=TRUE)
+```
+
+```{r}
+#Funtion to clean df (was dump could've just the code above )
+keep_vars = c("Country", "Data.source", "Sector", "Gas", "Unit")
+complete_df = carbon[keep_vars]
+complete_df = complete_df %>%
+  distinct(Country, Gas,Unit)
+
+#Don't run this but is my funtion 
+sum_rows = function(dataframe,variables){
+  for (var in variables)
+{print(var)
+fo = as.formula(paste(var,"~Country + Gas"))
+temp_df = aggregate(fo, data = dataframe, FUN = sum)
+vars_to_drop = c("Gas")
+temp_df = temp_df[,!(names(temp_df) %in% vars_to_drop)]
+View(temp_df)
+complete_df = merge(complete_df,temp_df,by = "Country")
+  }
+  return(complete_df)
+}
+complete_df = sum_rows(carbon,as.character(var_names))
+```
+
+
+```{r}
+#Replacing all 0s with NAs for calculation
+#Calculating rowMeans excluding all NAs
+
+complete_df[complete_df == 0] = NA
+complete_df = complete_df %>% mutate(mean = rowMeans(.[, 2:170],na.rm=TRUE))
+
+
+```
+```{r}
+#Dropping variables to only remain Country and mean when merge it doesn't contain 
+#unnesscessary varaibles like X2018
+keep_vars = c("Country", "mean")
+complete_df_1 = complete_df[keep_vars]
+world= ne_countries(scale = "medium", returnclass = "sf")
+class(world)
+
+#Map from online to make sure code works
+ggplot(data = world) +
+    geom_sf(aes(fill = pop_est)) +
+    scale_fill_viridis_c(option = "plasma", trans = "sqrt")
+```
+```{r}
+#Again dropping useless variables
+keep_vars = c("name", "geometry")
+world_1 = world[keep_vars]
+
+#final df should only contain original world dataset and also mean co2 of each country
+final_df = merge(world, complete_df_1, by.x = "name", by.y = "Country", all.x = TRUE)
+```
+
+```{r}
+#mean map not with leaflet
+ggplot(data = final_df) +
+    geom_sf(aes(fill = mean)) +
+    scale_fill_viridis_c()
+```
+
+```{r}
+#Thought would be interesting to see how it would look in 1900, 1950 and 2000
+#Again not with leaflet
+keep_vars = c("Country", "X2000", "X1950", "X1900")
+complete_df_2 = carbon[keep_vars]
+also_final_df = merge(world, complete_df_2, by.x = "name", by.y = "Country", all.x = TRUE)
+#2000s
+ggplot(data = also_final_df) +
+    geom_sf(aes(fill = X2000)) +
+    scale_fill_viridis_c(option = "plasma", trans = "sqrt")
+```
+```{r}
+#1950s
+ggplot(data = also_final_df) +
+    geom_sf(aes(fill = X1950)) +
+    scale_fill_viridis_c(option = "plasma", trans = "sqrt")
+```
+
+```{r}
+#1900s
+ggplot(data = also_final_df) +
+    geom_sf(aes(fill = X1900)) +
+    scale_fill_viridis_c(option = "plasma", trans = "sqrt")
+```
+
+#Now with leaflet
+```{r}
+#Redoing the entire data wrangling as above and
+#changing name of country for to ensure consistency
+df = read.csv("historical_emissions_world.csv")
+carbon = df%>%
+  filter(Gas == "CO2")
+
+carbon$Country[carbon$Country=="Republic of Congo"]="Congo"
+carbon$Country[carbon$Country=="Democratic Republic of the Congo"]="Dem. Rep. Congo"
+carbon$Country[carbon$Country=="Central African Republic"]="Central African Rep."
+carbon$Country[carbon$Country=="South Sudan"]="S. Sudan"
+carbon$Country[carbon$Country=="Czech Republic"]="Czech Rep."
+carbon$Country[carbon$Country=="Bosnia and Herzegovina"]="Bosnia and Herz."
+
+vars_drop = c("Data.source", "Sector", "Gas", "Unit")
+carbon_1 = carbon[,!(names(carbon) %in% vars_drop)]
+var_names = colnames(carbon_1)
+complete_df = aggregate(.~Country, data = carbon_1, FUN = sum,na.rm=TRUE)
+complete_df[complete_df == 0] = NA
+complete_df = complete_df %>% mutate(mean = rowMeans(.[, 2:170],na.rm=TRUE))
+
+keep_vars = c("Country", "mean")
+complete_df_1 = complete_df[keep_vars]
+
+final_df = merge(world, complete_df_1, by.x = "name", by.y = "Country", all.x = TRUE)
+```
+
+```{r}
+vars_to_keep = c("name","mean","geometry")
+leaflet_df = final_df[vars_to_keep]
+bins <- c(0,50,100,200,500,1000,2500,5000,10000)
+
+pal <- colorBin("YlOrRd", domain = final_df$mean, bins = bins)
+
+labels <- sprintf(
+  "<strong>%s</strong><br/>%g MtCO₂e (Metric Tons)",
+  leaflet_df$name, leaflet_df$mean
+) %>% lapply(htmltools::HTML)
+
+
+my_title <- tags$p(tags$style("p {color: dark grey; font-size:12px}"),
+            tags$b("Mean CO₂ Emission By Country (1850 - 2018) By Metric Tons"))
+
+map = leaflet(final_df) %>%
+  addTiles() %>%
+  addProviderTiles("Esri.WorldImagery")%>%
+  addPolygons(
+  fillColor = ~pal(mean),
+  weight = 2,
+  opacity = 1,
+  color = "white",
+  dashArray = "3",
+  fillOpacity = 0.7, 
+  highlightOptions = highlightOptions(
+    weight = 5,
+    color = "#666",
+    dashArray = "",
+    fillOpacity = 0.7,
+    bringToFront = TRUE),   
+  label = labels,
+  labelOptions = labelOptions(
+    style = list("font-weight" = "normal", padding = "3px 8px"),
+    textsize = "15px",
+    direction = "auto"))
+
+map%>%
+addLegend(pal = pal, values = ~density, opacity = 0.7, title = "Mean CO₂ Emission (Mt)",
+  position = "bottomright")%>%
+  addControl(my_title, position = "topright" )
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
