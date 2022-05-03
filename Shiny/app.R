@@ -33,6 +33,7 @@ library(rnaturalearthdata)
 library(htmlwidgets)
 library(htmltools)
 library(leafletCN)
+library(rsconnect)
 
 #NLP annotate overrides ggplot2 annotate function so have to call ggplot2::annotate
 
@@ -48,9 +49,18 @@ EU_story <- EU_story[, -1]
 
 #NLP
 #load word frequency data
-words <- read.csv("df_words_frequency.csv", header = T, fileEncoding="latin1")
+words <- read.csv("df_words_frequency.csv", header = T, fileEncoding ="latin1")
 #load document comparison data
 comparisons <- read.csv("comparisons.csv", sep = ",")
+
+###data organizing###
+#create dataframe long: melted_d
+melted_d <- melt(words, id = "word", measure.vars = 2:ncol(words))
+
+#changing the labels names
+melted_d$variable <- factor(melted_d$variable,
+                            levels = c("ipcc_90_92.pdf", "ipcc_95.pdf", "ipcc_01.pdf", "ipcc_07.pdf", "ipcc_14.pdf","total"),
+                            labels = c("IPCC 1992 Report", "IPCC 1995 Report", "IPCC 2001 Report", "IPCC 2007 Report", "IPCC 2014 Report","All Reports"))
 
 ###########
 
@@ -119,48 +129,83 @@ world_map_c <- world_map %>%
 
 #make SHINY APP
 # Define UI
-ui <- navbarPage(title = "Carbon Emissions",
+ui <- navbarPage(
+  #CSS
+  tags$head(
+    tags$style(htmltools::HTML("
+    h1 { font-family: 'Tahoma'; color: #0047AB; font-weight: 'bold'; }
+    h2 { font-family: 'Tahoma'; color: #4682B4; font-weight: 'bold'; }
+    h3 { font-family: 'Tahoma'; color: #4682B4; font-weight: 'bold'; }
+    body { background-color: 'white'; }
+    .navbar { background-color: #96DED1 }
+    .navbar-default .navbar-brand { font-family: 'Tahoma'; color: #0047AB; }
+    .navbar-dropdown { font-family: Arial; font-size: 13px; color: #4682B4; }
+    .filters { margin: 0px auto; background-color: #96DED1; }
+    .shiny-input-container { width:75% !important; background-color: #96DED1; padding-top: 0px; padding-left: 10px;padding-right: 10px; padding-bottom: 10px; border-radius: 20px; }
+    .js-irs-0 .irs-grid-text { color: #0047AB }
+    .irs-grid-pol:nth-of-type(odd) { background: #0047AB }
+    .irs-grid-pol:nth-of-type(even) { background: #0047AB }
+                               ")
+               )
+  ),
+
+  title = "Carbon Emissions", position = "fixed-top",
                  tabPanel("Overview",
 
     #create a grid on website
-    fluidRow(column(width = 12,
-                    leafletOutput("map", width = "100%", height = 680)
+    fluidRow(column(width = 12, style = "padding-top:50px",
+                    leafletOutput("map", width = "100%", height = 670)
                     )
              ),
 
     fluidRow(
       column(width = 5, offset = 4,
+             h3("Year"),
              #slider for Year
-             chooseSliderSkin("Round", "#6495ED"),
-             setSliderColor("#6495ED", c(1)), #set how many sliders with this specific color
-             sliderInput("Year_slider", label = h4("Year"),
+             chooseSliderSkin("Round", "#0047AB"),
+             setSliderColor("#0047AB", c(1)), #set how many sliders with this specific color
+             sliderInput("Year_slider", label = h4(""),
                          min = 1850, max = 2018, value = 2018,
-                         step = 1, sep = "", width = 400, animate = F)
+                         step = 1, sep = "", width = 400, animate = F),
+             p("*This slider controls the map and 2 other graphs below",
+               style = "font-family: 'Helvetica'; fontsi16pt; text-align:justify")
              )
         ),
+
+    fluidRow(column(width = 10, offset = 1, style = "padding-right:100px; padding-top:30px; padding-bottom:10px",
+                    h2("State of the World in Carbon Emissions"),
+                    p("Overall, CO2 emissions have exponentially increased in the past century. Initially, the European Nations had the highest CO2 emission, this was expected as the European nations were the first to enter the Industrial Revolution, however, as time moved closer to the present, countries like the United States, China and Russia became the countries with the highest CO2 emission. This is due to the mass population as well as the strict environmental policies in more developed nations, forcing firms to move their manufacturing activities to less developed countries such as China. Surprisingly, despite the United States having relatively strict envrionmental policies, it is still one of the highest CO2 emitter in the world.",
+                      style = "font-family: 'Helvetica'; fontsi16pt; text-align:justify"),
+                      br()
+                    )
+             ),
+
     fluidRow(
-        column(width = 6,
-             plotOutput("rank", height = 500, width = 1000,
+        column(width = 6, style = "padding-bottom:0px",
+             plotOutput("rank", height = 500, width = 900,
                         #brush = brushOpts("rank_brush", resetOnNew = T),
                         #hover = hoverOpts("rank_hover", nullOutside = T, delay = 0)
                         #click = clickOpts("rank_click", clip = T)
                         )
              ),
 
-        column(width = 4, offset = 2,
-               h3("Sectors"),
-               br(),
+        column(width = 4, offset = 2, style = "padding-bottom:0px",
+               h4("Sectors",
+                  style = "font-family:'Helvetica'; color:'black' ; font-weight:'bold', font-size:20px"),
                p("\nHover over a country for carbon emissions breakdown by sector"),
+               br(),
                girafeOutput("sector")
                )
         ),
+
                  ),
 
+
     tabPanel("Story",
-             fluidRow(column(width = 5, offset = 1, style = "padding-bottom:50px",
+             fluidRow(column(width = 5, offset = 1, style = "padding-top:75px; padding-bottom:50px",
                              imageOutput("eu_rank")
                              ),
-                      column(width = 6, style = "padding-bottom:50px",
+                      column(width = 6, style = "padding-top:75px; padding-bottom:50px",
                              mainPanel(br(),
                                h3("The Story in Europe"),
                                p("Europe has always been at the forefront of policymaking on environmental issues, in particular, resource sustainability. We thought it would be interesting to look into why this is the case. Going back in time to the 1850s, we find ourselves in the midst of the industrial revolution with the United Kingdom and other European countries leading the way in advancements in machinery and technology. However, this advancement came at the cost of the environment, leading to an exponential rise in greenhouse gas emissions. During that period, the United Kingdom held the #1 position in total carbon emissions for 21 years far outstripping the country that came in second (United States). At the same time, other European countries occupied the top 10 spots with the greatest carbon emissions.",
@@ -170,9 +215,6 @@ ui <- navbarPage(title = "Carbon Emissions",
                                  style = "font-family: 'Helvetica'; fontsi16pt; text-align:justify")
                                )
                              )
-                      ),
-
-             fluidRow(column(width = 12)
                       ),
 
              fluidRow(column(width = 11, offset = 1, style = "padding:100px",
@@ -194,13 +236,14 @@ ui <- navbarPage(title = "Carbon Emissions",
              ),
 
              fluidRow(column(width = 11, offset = 1,
-                             mainPanel(p("Looking at the line plot of European Union emissions overtime, we can trace a general increasing trend for over a century before a slight decline begins to happen in the 1980s. According to the European Environmental Agency, the 80s was a decade where political and social events shaped policy making on environmental sustainability. On the political front the Green Party that had made some headway in the 70s became more prominent in the European Parliment and in 1989 they won 26 seats on the Parliment. However, the 80s was also the decade when an environmental disaster struck in the form of a nuclear accident at the Chernobyl power plant in 1986. Following the catastrophe, the European Community devoted a whole section to environmental policy-making and all the members of in UN signed the Montreal Protocol promising the phase out the use of CFCs (Chlorofluorocarbons), substances that were identified to be depleting the ozone layer.",
+                             mainPanel(h2("Environmental Policies in Europe between 1980-1999"),
+                                       p("Looking at the line plot of European Union emissions overtime, we can trace a general increasing trend for over a century before a slight decline begins to happen in the 1980s. According to the European Environmental Agency, the 80s was a decade where political and social events shaped policy making on environmental sustainability. On the political front the Green Party that had made some headway in the 70s became more prominent in the European Parliment and in 1989 they won 26 seats on the Parliment. However, the 80s was also the decade when an environmental disaster struck in the form of a nuclear accident at the Chernobyl power plant in 1986. Following the catastrophe, the European Community devoted a whole section to environmental policy-making and all the members of in UN signed the Montreal Protocol promising the phase out the use of CFCs (Chlorofluorocarbons), substances that were identified to be depleting the ozone layer.",
                                          style = "font-family: 'Helvetica'; fontsi16pt; text-align:justify"),
                                        br(),
                                        p("A decade onward (1990s), various governing bodies in Europe have organized panels for discussing the issue of climate change, introduced various policies, as well as began to bridge the gap between the scientific community and policy-makers. The European Environmental Agency was established in 1994 to provide both the government and the public on information regarding the climate change. In 1997, the Kyoto protocol was signed by all members of the EU with the goal of reducing carbon emissions. 2 years later, the Amsterdam Treaty (1999) was adopted by the EU, requiring environmental protection to be part of any policy enacted by member communities.",
                                          style = "font-family: 'Helvetica'; fontsi16pt; text-align:justify"),
                                        br(),
-                                       p("Overall, between 1980 - 2000 Europen countries have made various policy changes that appear to coincide with the decline in carbon emissions. This brief snapshot of historical events may provide part of the answer to whether policy making has impacted carbon emissions. In part the answer may be that policy making in its aggregate has been impactful in decreasing harmful gases. However, it would be too simplistic to say that policies have been the most important aspect that has affected change, since it is difficult to disentangle the effect of policy-making and other social changes in Europe that may have affected carbon emissions as well.",
+                                       p("Overall, between 1980-1999 Europen countries have made various policy changes that appear to coincide with the decline in carbon emissions. This brief snapshot of historical events may provide part of the answer to whether policy making has impacted carbon emissions. In part the answer may be that policy making in its aggregate has been impactful in decreasing harmful gases. However, it would be too simplistic to say that policies have been the most important aspect that has affected change, since it is difficult to disentangle the effect of policy-making and other social changes in Europe that may have affected carbon emissions as well.",
                                          style = "font-family: 'Helvetica'; fontsi16pt; text-align:justify"),
                                        br(),
                                        tags$a(href = "https://www.eea.europa.eu/", "Citation", target="_blank"),
@@ -210,7 +253,7 @@ ui <- navbarPage(title = "Carbon Emissions",
                       )
     ),
 
-    tabPanel("IPCC Reports Analysis",
+    tabPanel("IPCC Reports Analysis", style = "padding-top:75px",
              fluidRow(column(width = 12,
                              mainPanel(h1("Intergovernmental Panel on Climate Change (IPCC) Reports"))
                              )
@@ -227,83 +270,76 @@ ui <- navbarPage(title = "Carbon Emissions",
                                        )
                              ),
                       column(width = 5, style = "padding-bottom:100px;padding-left:0",
-                             plotOutput("wordcloud")
+                             img(src = "wordcloud.png", align = "center")
                              )
                       ),
 
              #word frequencies
              fluidRow(column(width = 11, offset = 1, style = "padding-bottom:30px",
-                             mainPanel(h2("Frequently Repeated Words in the Reports")
+                             mainPanel(h2("'Climate Change' Dominates the Reports"),
+                                       p("Unsurprisingly, the most frequent words are “climate” and “change”. When focusing on the individual reports, we can see that the most frequently appearing words in all reports are shared by the individual reports. However, there are also some report-specific words that are used frequently in each of of the different reports. In 1995, the city of Chicago was hit by a deadly heatwave that took the lives of more than 700 citizens. The word “usa” made it to the top three most used words in that year’s report. Similarly, the 2014 report is very specific with its focus on solutions rather than problems as the terms “mitigation” and “adaptation” appear in the list of top ten words.",
+                                         style = "font-family: 'Helvetica'; fontsi16pt; text-align:justify")
                                        )
                              )
                       ),
 
-             #fluidRow(column(width = 11, offset = 1, style = "paddding-bottom:50px",
-                             #plotOutput("top10_words_all")
-                             #)
-                      #),
-
-             fluidRow(column(width = 11, offset = 1,
+             fluidRow(column(width = 11, offset = 1, style = "padding-bottom:100px",
                              plotOutput("top10_words_reports", 1000, height = 500)
                              )
                       ),
 
-             fluidRow(column(width = 11, offset = 1, style = "padding-bottom:100px",
-                             mainPanel(br(),
-                                       p("Unsurprisingly, the most frequent words are “climate” and “change”. When focusing on the individual reports, we can see that the most frequently appearing words in all reports are shared by the individual reports. However, there are also some report-specific words that are used frequently in each of of the different reports. In 1995, the city of Chicago was hit by a deadly heatwave that took the lives of more than 700 citizens. The word “usa” made it to the top three most used words in that year’s report. Similarly, the 2014 report is very specific with its focus on solutions rather than problems as the terms “mitigation” and “adaptation” appear in the list of top ten words.",
-                                         style = "font-family: 'Helvetica'; fontsi16pt; text-align:justify"))
-                             )
-                      ),
 
-             #evolution through time
+             #Evolution through time
              fluidRow(column(width = 11, offset = 1, style = "padding-bottom:30px",
-                             mainPanel(h2("Evolution of Keywords used throughout the Years")
+                             mainPanel(h2("No New Trends in use of Keywords"),
+                                       p("Overall the reports stress the global aspect of climate change, the increase in greenhouse gas emissions, as well as the risks and costs it poses to our environment and society. Looking at the evolution of keyword usage through time shows that the words ”use” and “level” are gaining traction in the lastest report. Possibly due to the increasing urgency to decrease emissions in order to avoid catastrophic climate change.",
+                                         style = "font-family: 'Helvetica'; fontsi16pt; text-align:justify")
                                        )
                              )
                       ),
 
-             fluidRow(column(width = 12, style = "padding-bottom:50px",
+             fluidRow(column(width = 12, style = "padding-bottom:100px",
                              girafeOutput("words_overtime")
                              )
                       ),
 
-             fluidRow(column(width = 11, offset = 1, style = "padding-bottom:100px",
-                             mainPanel(br(),
-                                       p("Overall the reports stress the global aspect of climate change, the increase in greenhouse gas emissions, as well as the risks and costs it poses to our environment and society. Looking at the evolution of keyword usage through time shows that the words ”use” and “level” are gaining traction in the lastest report. Possibly due to the increasing urgency to decrease emissions in order to avoid catastrophic climate change.",
-                                         style = "font-family: 'Helvetica'; fontsi16pt; text-align:justify"))
-                             )
-                      ),
 
              #Jaccard similarity score
              fluidRow(column(width = 11, offset = 1, style = "padding-bottom:30px",
-                              mainPanel(h2("Are All the Reports the Same?")
+                              mainPanel(h2("Are All the Reports the Same?"),
+                                        p("The similarity between the most frequent keywords used in the reports and the same evolution curve the words follow through the years raises the question of whether the reports are simply rephrasing the same message every single year. Calculated Jaccard similarity of documents, however, shows the opposite - while the frequent keywords might be the same for the reports, the content is not. In other words, they are worth the read!",
+                                          style = "font-family: 'Helvetica'; fontsi16pt; text-align:justify"))
                                         )
                        ),
 
-             fluidRow(column(width = 6, offset = 1,
+             fluidRow(column(width = 6, offset = 1, style = "padding-bottom:20px",
                              dataTableOutput("comparisons_table")
                              ),
 
-                      column(width = 4, style = "padding-left:50px",
-                             plotOutput("comparisons_heatmap", height = 350, width = 350)
-                             )
-                      ),
+             column(width = 4, style = "padding-left:50px; padding-bottom:20px",
+                    plotOutput("comparisons_heatmap", height = 350, width = 350)
+                    )
+             ),
 
              fluidRow(column(width = 11, offset = 1,
-                             mainPanel(br(),
-                                       p("The similarity between the most frequent keywords used in the reports and the same evolution curve the words follow through the years raises the question of whether the reports are simply rephrasing the same message every single year. Calculated Jaccard similarity of documents, however, shows the opposite - while the frequent keywords might be the same for the reports, the content is not. In other words, they are worth the read!",
+                             mainPanel(h3("About the Jaccard Similarity Index"),
+                                       p("The Jaccard similarity index compares corpus documents, measuring the similarity between them. It can be deployed on numeric data but it is also a popular natural language processing method, its ability to detect context and common words can help determine the level of document similarity. In reporting and publishing, reusing text is quite common - topics and phrases overlap and sometimes this overlap is almost too precise. As such, there is value in using the Jaccard score to check for similarity.",
+                                         style = "font-family: 'Helvetica'; fontsi16pt; text-align:justify"),
+                                       br(),
+                                       p("Calculated Jaccard similarity score identified the highest similarity between the 2014 and 2007 documents, as well as the 2007 and 2001 documents. This could mean that whole sentences were reused or the documents referred to the same topics, making it impossible to avoid overlaps. The score, however, remains very low, 0.01578 means that an approximately 1.6% similarity was detected - a very small number given the size ofs the documents!",
                                          style = "font-family: 'Helvetica'; fontsi16pt; text-align:justify"),
                                        br(),
                                        tags$a(href = "https://www.ipcc.ch/reports/", "Citation", target="_blank"),
-                                       br())
+                                       br()
+                                       )
                              )
                       )
+
              )
 
     )
 
 
-)
 
 
 
@@ -320,7 +356,7 @@ server <- function(input, output, session) {
 
     Year_lab <- unique(world_map_filter$Year)
 
-    #make map
+    #set labels and details
     bins = c(0, 50, 100, 200, 500, 1000, 2500, 5000, 10000, 11000)
 
     pal = colorBin("YlOrRd", domain = world_map_filter$Emissions, bins = bins)
@@ -332,10 +368,11 @@ server <- function(input, output, session) {
       lapply(htmltools::HTML)
 
 
-    my_title = tags$p(tags$style("p {color: dark grey; font-size:20px}"),
-                      tags$b("CO₂ Emission by Country per Metric Tons in", Year_lab))
+    my_title = tags$p(tags$b("Total CO₂ Emission per Metric Tons by Country in", Year_lab),
+                      style = "color: dark grey; font-size:20px")
 
-    map = leaflet(world_map_filter) %>%
+    #make map
+    map = leaflet(world_map_filter, options = leafletOptions(minZoom = 2)) %>%
       addTiles() %>%
       addProviderTiles("Esri.WorldImagery") %>%
       addPolygons(
@@ -354,7 +391,8 @@ server <- function(input, output, session) {
           textsize = "15px",
           direction = "auto")
       ) %>%
-      setView(lat = 40.318001, lng = -11.400387, zoom = 2)
+      setView(lat = 40.318001, lng = -11.400387, zoom = 2) %>%
+      setMaxBounds(lng1 = -90, lat1 = -180, lng2 = 90, lat2 = 180)
 
     map %>%
       addLegend(pal = pal, values = ~density, opacity = 0.7, title = "CO₂ Emission per Metric Ton",
@@ -370,6 +408,11 @@ server <- function(input, output, session) {
     #filter for YEAR
     Filtered <- world_rank %>%
       filter(Year == input$Year_slider)
+
+    Year_emi <- unique(Filtered$Year)
+
+    #create a title
+    title <- glue("Top 10 Countries: Total Carbon Emissions in ", Year_emi, "\n ")
 
     #put plot code HERE
     Filtered %>%
@@ -390,14 +433,14 @@ server <- function(input, output, session) {
             panel.background = element_rect(fill = "transparent", colour = NA),
             axis.ticks.x = element_blank(),
             axis.ticks.y = element_blank(),
-            plot.title = element_text(family = "Helvetica", color = "#36454F", face = "bold", size = 20),
+            plot.title = element_text(family = "Helvetica", color = "#36454F", face = "bold", size = 25),
             axis.title.x = element_text(family = "Helvetica", color = "#36454F", size = 12),
             axis.text.x = element_text(family = "Helvetica", color = "#36454F"),
             axis.title.y = element_text(family = "Helvetica", color = "#36454F"),
             axis.text.y = element_blank(),
             plot.caption = element_text(family = "Helvetica", color = "#36454F", face = "italic", size = 12),
             plot.margin = margin(2, 2, 2, 4, "cm")) +
-      labs(title = "Top 10 Countries: Total Carbon Emissions\n ",
+      labs(title = title,
            caption = "\nData from the Postdam Institute for Climate Impact Research",
            x = "",
            y = "Carbon Emissions per Metric Ton")
@@ -435,14 +478,17 @@ server <- function(input, output, session) {
             panel.background = element_rect(fill = "transparent", colour = NA), #make bg transparent
             axis.ticks.x = element_blank(),
             axis.ticks.y = element_blank(),
-            plot.title = element_text(family = "Helvetica", color = "#36454F", face = "bold"),
             axis.title.x = element_blank(),
             axis.text.x = element_blank(),
             axis.title.y = element_blank(),
             axis.text.y = element_blank(),
+            #plot.title = element_text(family = "Helvetica", color = "#36454F", face = "bold", size = 25),
+            #plot.subtitle = element_text(family = "Helvetica", color = "#36454F", size = 10),
             plot.background = element_rect(fill = "transparent", colour = NA),
             plot.caption = element_text(family = "Helvetica", color = "#36454F", face = "italic", size = 8),
             plot.margin = margin(1, 1, 1, 3, "cm"))
+      #labs(title = "Sectors",
+           #subtitle = "Hover over a country for carbon emissions breakdown by sector\n ")
 
     #tooltip code (ggiraph)
     girafe(ggobj = sector_percentage,
@@ -616,7 +662,10 @@ server <- function(input, output, session) {
                family = "Helvetica", color = "#36454F") +
       geom_segment(aes(x = 1987, y = 0, xend = 1987, yend = 1190), color = "#50C878") +
       ggplot2::annotate(geom = "text", x = 1987, y = 1260, label = "Montreal \nProtocol", size = 2.5,
-               family = "Helvetica", color = "#36454F")
+               family = "Helvetica", color = "#36454F") +
+      geom_segment(aes(x = 1997, y = 0, xend = 1997, yend = 1190),  color = "#50C878") +
+      ggplot2::annotate(geom = "text", x = 1997, y = 1260, label = "Kyoto \nProtocol", size = 2.5,
+                        family = "Helvetica", color = "#36454F")
 
     #create interactivity
     ggplotly(eu_emissions, dynamicTicks = F, tooltip = c("Country", "Year", "Emissions"))
@@ -665,75 +714,17 @@ server <- function(input, output, session) {
 
   })
 
-  output$wordcloud <- renderPlot({
-
-    #for reproducibility
-    set.seed(1234)
-
-    #word cloud
-    cloud <- wordcloud(words = words$word, freq = words$total, min.freq = 1,
-              max.words=80, random.order=FALSE, rot.per=0.35,
-              colors=brewer.pal(8, "Dark2"))
-
-    #create png
-    #png("clouds.png", width = 10, height = 10, units='in', res = 300)
-
-    #remove the margins
-    par(mar = rep(0, 4))
-
-  })
-
-
-  #output$top10_words_all <- renderPlot({
-
-    #top 10 words across all reports
-    #words %>%
-      #arrange(desc(total)) %>%
-      #dplyr::slice(1:10) %>%
-      #ggplot(aes(x = reorder(word, total), total)) +
-      #geom_col(fill = "#1FA187") +
-      #labs(x = NULL, y = "Word Frequency") +
-      #ggtitle("Word Frequency in All IPCC Reports (1990 - 2014)") +
-      #coord_flip() +
-      #theme(panel.grid.major.x = element_line(color = "#D3D3D3", size = 0.3),
-            #panel.grid.minor.x = element_line(colour = "#D3D3D3", size = 0.1),
-            #panel.grid.major.y = element_blank(),
-            #panel.border = element_blank(),
-            #panel.background = element_blank(),
-            #axis.ticks.x = element_blank(),
-            #axis.ticks.y = element_blank(),
-            #axis.title.x = element_text(family = "Helvetica", color = "#36454F", size = 15),
-            #axis.text.x = element_text(family = "Helvetica", color = "#36454F", size = 10),
-            #axis.title.y = element_text(family = "Helvetica", color = "#36454F", size = 15),
-            #axis.text.y = element_text(family = "Helvetica", color = "#36454F", size = 10),
-            #plot.title = element_text(family = "Helvetica", color = "#36454F", face = "bold", size = 20),
-            #plot.caption = element_text(family = "Helvetica", color = "#36454F", face = "italic", size = 10))
-
-  #})
 
 
 output$top10_words_reports <- renderPlot({
-
-  #reorganize dataframe
-  melted_d <- melt(words, id = "word", measure.vars = 2:ncol(words))
-
-  #changing the labels names
-  melted_d$variable <- factor(melted_d$variable, levels = c("ipcc_90_92.pdf", "ipcc_95.pdf", "ipcc_01.pdf", "ipcc_07.pdf", "ipcc_14.pdf","total"),
-                              labels = c("IPCC 1992 Report", "IPCC 1995 Report", "IPCC 2001 Report", "IPCC 2007 Report", "IPCC 2014 Report","All Reports")
-  )
 
   #need to fist filter for top 10 of all the reports
   # Plot Data Frame
   pd <- melted_d %>%
     group_by(variable) %>%
     top_n(10, value) %>%
-    # 1. Remove grouping
     ungroup() %>%
-    # 2. Arrange by
-    #   i.  facet group
-    #   ii. bar height
     arrange(variable, word) %>%
-    # 3. Add order column of row numbers
     mutate(order = row_number())
 
   #top 10 words
@@ -779,7 +770,7 @@ output$top10_words_reports <- renderPlot({
           axis.text.x = element_text(family = "Helvetica", color = "#36454F", size = 10),
           axis.title.y = element_text(family = "Helvetica", color = "#36454F", size = 15),
           axis.text.y = element_text(family = "Helvetica", color = "#36454F", size = 10),
-          plot.title = element_text(family = "Helvetica", color = "#36454F", face = "bold", size = 20),
+          plot.title = element_text(family = "Helvetica", color = "#36454F", face = "bold", size = 25),
           plot.subtitle = element_text(family = "Helvetica", color = "#36454F", size = 18),
           plot.caption = element_text(family = "Helvetica", color = "#36454F", face = "italic", size = 10)) +
     labs(title = "Word Frequency in IPCC Reports",
@@ -951,7 +942,7 @@ output$comparisons_heatmap <- renderPlot({
           axis.text.x = element_text(family = "Helvetica", color = "#36454F", size = 10),
           axis.title.y = element_text(family = "Helvetica", color = "#36454F", size = 15),
           axis.text.y = element_text(family = "Helvetica", color = "#36454F", size = 10),
-          plot.title = element_text(family = "Helvetica", color = "#36454F", face = "bold", size = 20),
+          plot.title = element_text(family = "Helvetica", color = "#36454F", face = "bold", size = 25),
           plot.subtitle = element_text(family = "Helvetica", color = "#36454F", size = 15),
           plot.caption = element_text(family = "Helvetica", color = "#36454F", face = "italic", size = 10)) +
   labs(title = "Jaccard Similarity Score",
@@ -968,3 +959,4 @@ output$comparisons_heatmap <- renderPlot({
 
 # Run the application
 shinyApp(ui = ui, server = server)
+
