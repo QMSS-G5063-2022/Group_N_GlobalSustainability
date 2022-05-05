@@ -2,7 +2,7 @@
 
 We have created a Shiny website to allow user explore global emissions visually. The Carbon Emissions website is divided in three parts:</br>
 
-**1.) Carbon emissions in the world** - integrated Leaflet map with an interactive time evolution slider shows the global increase in emissions from 1850 to 2018. Data for this part come from the World Bank.</br>
+**1.) Carbon emissions in the world** - integrated Leaflet map with an interactive time evolution slider shows the global increase in emissions from 1850 to 2018. Data for this part come from the Postdam Institute for Climate Impact Research.</br>
 
 **2.) The emission "story" in Europe** - this part explores the top 10 "polluters of the world" with a special focus on Europe. As a forefront of policymaking on emissions and sustainability, Europe has come a long way from the industrial revolution. The emission stream persuasively shows just how much the emission problem has evolved. EU emissions overtime, however, shows hope. Montreal Protocol, Kyoto Protocol and Paris Agreement, along with other emission decreasing activities, have successfully promoted change.</br>
 
