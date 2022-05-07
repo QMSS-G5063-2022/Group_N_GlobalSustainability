@@ -181,7 +181,7 @@ ui <- navbarPage(
              ),
 
     fluidRow(
-        column(width = 6, style = "padding-bottom:0px",
+        column(width = 4, style = "padding-bottom:0px;padding-right:150px",
              plotOutput("rank", height = 500, width = 900,
                         #brush = brushOpts("rank_brush", resetOnNew = T),
                         #hover = hoverOpts("rank_hover", nullOutside = T, delay = 0)
@@ -189,7 +189,7 @@ ui <- navbarPage(
                         )
              ),
 
-        column(width = 4, offset = 2, style = "padding-bottom:0px",
+        column(width = 4, offset = 4, style = "padding-bottom:0px;padding-left:50px",
                h4("Sectors",
                   style = "font-family:'Helvetica'; color:'black' ; font-weight:'bold', font-size:20px"),
                p("\nHover over a country for carbon emissions breakdown by sector"),
@@ -203,7 +203,7 @@ ui <- navbarPage(
 
     tabPanel("Story",
              fluidRow(column(width = 5, offset = 1, style = "padding-top:75px; padding-bottom:50px",
-                             imageOutput("eu_rank")
+                             img(src = "EU_rank.gif", align = "left")
                              ),
                       column(width = 6, style = "padding-top:75px; padding-bottom:50px",
                              mainPanel(br(),
@@ -237,10 +237,10 @@ ui <- navbarPage(
 
              fluidRow(column(width = 11, offset = 1,
                              mainPanel(h2("Environmental Policies in Europe between 1980-1999"),
-                                       p("Looking at the line plot of European Union emissions overtime, we can trace a general increasing trend for over a century before a slight decline begins to happen in the 1980s. According to the European Environmental Agency, the 80s was a decade where political and social events shaped policy making on environmental sustainability. On the political front the Green Party that had made some headway in the 70s became more prominent in the European Parliment and in 1989 they won 26 seats on the Parliment. However, the 80s was also the decade when an environmental disaster struck in the form of a nuclear accident at the Chernobyl power plant in 1986. Following the catastrophe, the European Community devoted a whole section to environmental policy-making and all the members of in UN signed the Montreal Protocol promising the phase out the use of CFCs (Chlorofluorocarbons), substances that were identified to be depleting the ozone layer.",
+                                       p("Looking at the line plot of European Union emissions overtime, we can trace a general increasing trend for over a century before a slight decline begins to happen in the 1980s. According to the European Environmental Agency, the 80s was a decade where political and social events shaped policy making on environmental sustainability. On the political front the Green Party that had made some headway in the 70s became more prominent in the European Parliment and in 1989 they won 26 seats on the Parliment. However, the 80s was also the decade when an environmental disaster struck in the form of a nuclear accident at the Chernobyl power plant in 1986. Following the catastrophe, the European Community devoted a whole section to environmental policy-making and all members of the UN signed the Montreal Protocol promising the phase out the use of CFCs (Chlorofluorocarbons), substances that were identified to be depleting the ozone layer.",
                                          style = "font-family: 'Helvetica'; fontsi16pt; text-align:justify"),
                                        br(),
-                                       p("A decade onward (1990s), various governing bodies in Europe have organized panels for discussing the issue of climate change, introduced various policies, as well as began to bridge the gap between the scientific community and policy-makers. The European Environmental Agency was established in 1994 to provide both the government and the public on information regarding the climate change. In 1997, the Kyoto protocol was signed by all members of the EU with the goal of reducing carbon emissions. 2 years later, the Amsterdam Treaty (1999) was adopted by the EU, requiring environmental protection to be part of any policy enacted by member communities.",
+                                       p("A decade onward (1990s), various governing bodies in Europe organized panels for discussing the issue of climate change, introduced various policies, as well as began to bridge the gap between the scientific community and policy-makers. The European Environmental Agency was established in 1994 to provide both the government and the public with information regarding climate change. In 1997, the Kyoto protocol was signed by all members of the EU with the goal of reducing carbon emissions. 2 years later, the Amsterdam Treaty (1999) was adopted by the EU, requiring environmental protection to be part of any policy enacted by member communities.",
                                          style = "font-family: 'Helvetica'; fontsi16pt; text-align:justify"),
                                        br(),
                                        p("Overall, between 1980-1999 Europen countries have made various policy changes that appear to coincide with the decline in carbon emissions. This brief snapshot of historical events may provide part of the answer to whether policy making has impacted carbon emissions. In part the answer may be that policy making in its aggregate has been impactful in decreasing harmful gases. However, it would be too simplistic to say that policies have been the most important aspect that has affected change, since it is difficult to disentangle the effect of policy-making and other social changes in Europe that may have affected carbon emissions as well.",
@@ -305,37 +305,39 @@ ui <- navbarPage(
 
 
              #Jaccard similarity score
-             fluidRow(column(width = 11, offset = 1, style = "padding-bottom:30px",
+             fluidRow(column(width = 11, offset = 1, style = "padding-bottom:15px",
                               mainPanel(h2("Are All the Reports the Same?"),
                                         p("The similarity between the most frequent keywords used in the reports and the same evolution curve the words follow through the years raises the question of whether the reports are simply rephrasing the same message every single year. Calculated Jaccard similarity of documents, however, shows the opposite - while the frequent keywords might be the same for the reports, the content is not. In other words, they are worth the read!",
-                                          style = "font-family: 'Helvetica'; fontsi16pt; text-align:justify"))
+                                          style = "font-family: 'Helvetica'; fontsi16pt; text-align:justify"),
+                                        tags$a(href = "https://www.ipcc.ch/reports/", "Citation", target="_blank"),
+                                        br())
                                         )
                        ),
 
-             fluidRow(column(width = 6, offset = 1, style = "padding-bottom:20px",
+             fluidRow(column(width = 11, offset = 1, style = "padding-bottom:20px",
+                             mainPanel(h3("About the Jaccard Similarity Index"),
+                                       p("The Jaccard similarity index compares corpus documents, measuring the similarity between them. It can be deployed on numeric data but it is also a popular natural language processing method, its ability to detect context and common words can help determine the level of document similarity. In reporting and publishing, reusing text is quite common - topics and phrases overlap and sometimes this overlap is almost too precise. As such, there is value in using the Jaccard score to check for similarity.",
+                                         style = "font-family: 'Helvetica'; fontsi16pt; text-align:justify"),
+                                       br(),
+                                       p("Calculated Jaccard similarity score identified the highest similarity between the 2014 and 2007 documents, as well as the 2007 and 2001 documents. This could mean that whole sentences were reused or the documents referred to the same topics, making it impossible to avoid overlaps. The score, however, remains very low, 0.01578 means that an approximately 1.6% similarity was detected - a very small number given the size ofs the documents!",
+                                         style = "font-family: 'Helvetica'; fontsi16pt; text-align:justify")
+                                       )
+                             )
+             ),
+
+             fluidRow(column(width = 6, offset = 1,
                              dataTableOutput("comparisons_table")
                              ),
 
              column(width = 4, style = "padding-left:50px; padding-bottom:20px",
                     plotOutput("comparisons_heatmap", height = 350, width = 350)
                     )
-             ),
-
-             fluidRow(column(width = 11, offset = 1,
-                             mainPanel(h3("About the Jaccard Similarity Index"),
-                                       p("The Jaccard similarity index compares corpus documents, measuring the similarity between them. It can be deployed on numeric data but it is also a popular natural language processing method, its ability to detect context and common words can help determine the level of document similarity. In reporting and publishing, reusing text is quite common - topics and phrases overlap and sometimes this overlap is almost too precise. As such, there is value in using the Jaccard score to check for similarity.",
-                                         style = "font-family: 'Helvetica'; fontsi16pt; text-align:justify"),
-                                       br(),
-                                       p("Calculated Jaccard similarity score identified the highest similarity between the 2014 and 2007 documents, as well as the 2007 and 2001 documents. This could mean that whole sentences were reused or the documents referred to the same topics, making it impossible to avoid overlaps. The score, however, remains very low, 0.01578 means that an approximately 1.6% similarity was detected - a very small number given the size ofs the documents!",
-                                         style = "font-family: 'Helvetica'; fontsi16pt; text-align:justify"),
-                                       br(),
-                                       tags$a(href = "https://www.ipcc.ch/reports/", "Citation", target="_blank"),
-                                       br()
-                                       )
-                             )
-                      )
-
              )
+        ),
+
+  tabPanel("About Us", style = "padding-top:75px",
+           fluidRow()
+           )
 
     )
 
@@ -392,14 +394,15 @@ server <- function(input, output, session) {
           direction = "auto")
       ) %>%
       setView(lat = 40.318001, lng = -11.400387, zoom = 2) %>%
-      setMaxBounds(lng1 = -90, lat1 = -180, lng2 = 90, lat2 = 180)
+      setMaxBounds(lng1 = -180, lat1 = -180, lng2 = 180, lat2 = 180)
 
     map %>%
       addLegend(pal = pal, values = ~density, opacity = 0.7, title = "CO₂ Emission per Metric Ton",
-                position = "bottomright")%>%
+                position = "bottomleft")%>%
       addControl(my_title, position = "topright")
 
-  })
+  }) %>%
+    bindCache(input$Year_slider)
 
 
   #create bar chart of world ranking carbon emissions
@@ -445,7 +448,9 @@ server <- function(input, output, session) {
            x = "",
            y = "Carbon Emissions per Metric Ton")
 
-  })
+  }) %>%
+    bindCache(input$Year_slider)
+
 
   #render the bar chart with the labelled sectors
   output$sector <- renderGirafe({
@@ -503,61 +508,11 @@ server <- function(input, output, session) {
            )
     )
 
-  })
-
-  output$eu_rank <- renderImage({
-
-    outfile <- tempfile(fileext = ".gif")
-
-      eu_story <- world_rank %>%
-        ggplot(aes(rank, group = Country, fill = as.factor(EU))) +
-        geom_tile(aes(y = Emissions_tot / 2, height = Emissions_tot, width = 0.9), alpha = 0.8) +
-        geom_text(aes(y = 0, label = paste(Country, "")), vjust = 0.2, hjust = 1,
-                  family = "Helvetica", color = "#36454F", check_overlap = TRUE) +
-        geom_text(aes(y = Emissions_tot, label = round(Emissions_tot), hjust = -1),
-                  family = "Helvetica", color = "#36454F", check_overlap = TRUE) +
-        scale_fill_manual(values = c("1" = "#1F51FF", "0" = "#B2BEB5")) +
-        scale_x_reverse() +
-        coord_flip(clip = "off", expand = FALSE) +
-        scale_y_continuous(labels = scales::comma) +
-        theme(legend.position = "none",
-              legend.text = element_blank(),
-              legend.title = element_blank(),
-              panel.grid.major.x = element_line(color = "#D3D3D3", size = 0.2),
-              panel.grid.minor.x = element_line(color = "#D3D3D3", size = 0.1),
-              panel.grid.major.y = element_blank(),
-              panel.border = element_blank(),
-              panel.background = element_blank(),
-              axis.ticks.x = element_blank(),
-              axis.ticks.y = element_blank(),
-              plot.title = element_text(family = "Helvetica", color = "#36454F", face = "bold"),
-              axis.title.x = element_text(family = "Helvetica", color = "#36454F"),
-              axis.text.x = element_blank(),
-              axis.title.y = element_text(family = "Helvetica", color = "#36454F"),
-              axis.text.y = element_blank(),
-              plot.subtitle = element_text(family = "Helvetica", color = "#36454F", size = 30, face = "bold"),
-              plot.caption = element_text(family = "Helvetica", color = "#36454F", face = "italic", size = 10),
-              plot.margin = margin(2, 2, 2, 4, "cm")) +
-        #animating
-        labs(title = "Top 10 Countries: Total Carbon Emissions",
-             subtitle = "Year: {closest_state}",
-             caption = "\nData from the Postdam Institute for Climate Impact Research",
-             x = "",
-             y = "") +
-        transition_states(Year, transition_length = 1, state_length = 1) +
-        view_follow(fixed_x = T)
-
-      #animate the plot with gganimate
-      anim_save("outfile.gif",
-                animate(eu_story, fps = 15, end_pause = 7, nframe = 2.5 * length(unique(world_rank$Year)),
-                        width = 500, height = 600)
-                )
-
-      # Return a list containing the filename
-      list(src = "outfile.gif", contentType = "image/gif")
+  }) %>%
+    bindCache(input$Year_slider)
 
 
-  }, deleteFile = TRUE)
+
 
 
   output$EU_emissions_stream <- renderPlot({
@@ -652,8 +607,10 @@ server <- function(input, output, session) {
             axis.title.y = element_text(family = "Helvetica", color = "#36454F"),
             axis.text.y = element_text(family = "Helvetica", color = "#36454F", size = 10),
             plot.title = element_text(family = "Helvetica", color = "#36454F", face = "bold", size = 20),
+            plot.subtitle = element_text(family = "Helvetica", color = "#36454F", size = 15),
             plot.caption = element_text(family = "Helvetica", color = "#36454F", face = "italic", size = 10)) +
       labs(title = "Carbon Emissions Overtime in Europe\n ",
+           subtitle = "Hover over the lines for more specific information",
            caption = "\nData from the Postdam Institute for Climate Impact Research",
            x = "Year",
            y = "Annual Carbon Emissions (Metric Tons)") +
@@ -816,8 +773,8 @@ output$words_overtime <- renderGirafe({
           legend.key.width = unit(1.5, "mm"),
           legend.key.size = unit(2, "mm"),
           legend.key = element_rect(fill = "transparent", color = NA),
-          legend.title = element_text(size = 10, color = "#36454F"),
-          legend.text = element_text(size = 8, color = "#36454F"),
+          legend.title = element_text(family = "Helvetica", color = "#36454F", size = 10),
+          legend.text = element_text(family = "Helvetica", color = "#36454F", size = 8),
           panel.grid.major.x = element_blank(),
           panel.grid.major.y = element_line(color = "#D3D3D3", size = 0.3),
           panel.grid.minor.y = element_line(colour = "#D3D3D3", size = 0.1),
