@@ -9,7 +9,7 @@ We have created a Shiny website to allow user explore global emissions visually.
 **3.) IPCC reports** - the Intergovernmental Panel on Climate Change publishes every 5 years a report to summarize the progress and setbacks in tackling climate change, to which the emissions contribute significantly. Natural language processing analysis explores the word frequency in the reports, emergence in trends as well as the similarity in reporting from report to report.</br> 
 
 ⚡**Explore the Shiny App at: https://cholaamy.shinyapps.io/Sustainability/**</br>
-**Presentation:**</br>
+**Presentation: https://drive.google.com/file/d/1azmYsJ-6CtowOgpEgOV9FmsjZeJ5mMy_/view?usp=sharing**</br>
 **Storyboard:** https://drive.google.com/file/d/1DBNAVjFvnBsnhGkI7BH33lfg1lfEBy94/view?usp=sharing</br>
 
 ![image_icon](https://img.shields.io/badge/R-276DC3?style=for-the-badge&logo=r&logoColor=white)
